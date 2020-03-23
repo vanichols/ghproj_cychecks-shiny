@@ -4,6 +4,7 @@ library(tidyverse)
 library(shinythemes) #--not working
 library(plotly)
 library(scales) #--to get $ on y axis, so easy!
+library(ggpubr) # for theme_pubclean
 
 
 
@@ -21,7 +22,8 @@ dat <- cyd_salprofs %>%
 
 #-m pct
 dat_ns <- dat %>% 
-    select(fiscal_year, gender, id, prof_simp, dept, base_salary) %>% 
+    select(fiscal_year, gender, prof_simp, dept, base_salary) %>% 
+    # ^ I got rid of ID b/c it wasn't in my version of cyd_salprofs 
     group_by(fiscal_year, dept, gender, prof_simp) %>% 
     summarise(n = n()) %>% 
     pivot_wider(names_from = gender, values_from = n) %>% 
