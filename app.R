@@ -1,3 +1,4 @@
+library(shiny)
 library(ggplot2)
 library(CyChecks2)
 library(tidyverse)
@@ -10,21 +11,35 @@ library(ggpubr) # for theme_pubclean
 
 # data --------------------------------------------------------------------
 
-dat <- cyd_salprofs %>% 
+awardprof <- c("distg prof", "univ prof", "morrill prof")
+
+#--data for salary fig
+dat <- 
+    professors %>% 
     mutate(Total = total_salary_paid,
            Base = base_salary, 
            Travel = travel_subsistence,
-           dept = str_to_title(dept)) %>% 
-    filter(prof_simp != "awarded prof") %>% 
-    mutate(prof_simp = str_to_title(prof_simp),
-           prof_simp = factor(prof_simp, levels = c("Asst Prof", "Assoc Prof", "Prof")))
+           dept = str_to_title(DEPT_SHORT_NAME)) 
+
+
+dat_sals <- 
+    dat %>%
+    filter(!grepl("chair|adj|affil|emer|vstg|chr|clin|collab|res", title)) %>%
+    mutate(prof_simp = ifelse(title %in% awardprof, "Awarded Prof", title),
+           prof_simp = str_to_title(prof_simp),
+           prof_simp = factor(prof_simp, levels = c("Asst Prof", "Assoc Prof", "Prof", "Awarded Prof")))
+
+
+dat_sals %>% 
+    select(prof_simp) %>% 
+    distinct()
 
 
 #-m pct
-dat_ns <- dat %>% 
-    select(fiscal_year, gender, prof_simp, dept, base_salary) %>% 
-    # ^ I got rid of ID b/c it wasn't in my version of cyd_salprofs 
-    group_by(fiscal_year, dept, gender, prof_simp) %>% 
+dat_ns <- 
+    dat_sals %>% 
+    select(year, gender, prof_simp, dept, base_salary) %>% 
+    group_by(year, dept, gender, prof_simp) %>% 
     summarise(n = n()) %>% 
     pivot_wider(names_from = gender, values_from = n) %>% 
     mutate(M = replace_na(M, 0),
@@ -35,12 +50,13 @@ dat_ns <- dat %>%
 
 
 #-m/f sal ratio
-dat_srat <- dat %>% 
-    select(fiscal_year, gender, prof_simp, dept, base_salary) %>%
-    group_by(fiscal_year, prof_simp, dept, gender) %>% 
+dat_srat <- 
+    dat_sals %>% 
+    select(year, gender, prof_simp, dept, base_salary) %>%
+    group_by(year, prof_simp, dept, gender) %>% 
     summarise(base_salary = mean(base_salary, na.rm = T)) %>% 
     pivot_wider(names_from = gender, values_from = base_salary) %>% 
-    mutate(mfsal_pct = (M/`F`)) %>% 
+    mutate(mfsal_pct = (`F`/M)) %>% 
     select(-`F`, -M) 
 
 
@@ -54,7 +70,7 @@ dat2 <-
         TRUE ~ mfsal_pct))
 
 
-dd_year <- dat %>% select(fiscal_year) %>% pull() %>% unique() %>% sort()
+dd_year <- dat %>% select(year) %>% pull() %>% unique() %>% sort()
 dd_dept <- dat %>% select(dept) %>% pull() %>% unique() %>% sort()
 #dd_st <- c("Total", "Base", "Travel")
 
@@ -105,9 +121,9 @@ server <- function(input, output) {
     dataset1 <- reactive({
 
         dat %>%
-            select(fiscal_year, dept, prof_simp, gender, id, Total, Base, Travel) %>%
+            select(year, dept, prof_simp, gender, id, Total, Base, Travel) %>%
             pivot_longer(Total:Travel) %>%
-            filter(fiscal_year == input$myy1) %>%
+            filter(year == input$myy1) %>%
             filter(dept == input$myd1) %>%
             mutate(value = round(value, 0))
 
@@ -138,7 +154,7 @@ server <- function(input, output) {
     dataset2 <- reactive({
         
         dat2 %>%
-            filter(fiscal_year == input$myy2) %>%
+            filter(year == input$myy2) %>%
             mutate(mycolor = ifelse(dept == input$myd2, "Y", "N"))
     })
     
@@ -151,9 +167,9 @@ server <- function(input, output) {
                        group = 1,
                        text = paste("Dept:", dept,
                                     "<br>Total Faculty:", ntot, ";", round(mn_pct*100, digits = 0), "% male",
-                                    "<br>Male Salary is", round(mfsal_pct*100, digits = 0), "% of Female"))) +
-            geom_hline(yintercept = 0.5) + 
-            geom_vline(xintercept = 1) +
+                                    "<br>Female Salary is", round(mfsal_pct*100, digits = 0), "% of Male"))) +
+            geom_hline(yintercept = 0.5, linetype = "dotted") + 
+            geom_vline(xintercept = 1, linetype = "dotted") +
             geom_point(aes(size = ntot, color = mycolor, alpha = mycolor)) + 
             geom_rug(color = "orange") +
             guides(size = F, color = F) +
@@ -161,13 +177,14 @@ server <- function(input, output) {
                                           "Y" = "orange")) +
             scale_alpha_manual(values = c("N" = 0.5,
                                           "Y" = 1)) +
-            facet_grid(.~prof_simp) +
-            labs(x = "\nPercentage of Female Salary Earned by Males\n",
+            facet_grid(.~prof_simp, scales = "free") +
+            labs(x = "\nPercentage of Male Salary Earned by Females\n",
                  y = "\nPercentage of Faculty Who Are Male\n") +
-            theme_pubclean() + 
-            theme(panel.grid = element_blank()) + 
+            #theme_pubclean() + 
+            theme(panel.grid = element_blank(),
+                  axis.title = element_text(margin = margin(t = 20))) + 
             scale_y_continuous(labels = label_percent()) +
-            scale_x_continuous(labels = label_percent()) 
+            scale_x_continuous(labels = label_percent(),  breaks = c(0.5, 1, 1.5, 2, 2.5, 3)) 
         
         ggplotly(p2, tooltip = "text")
         
