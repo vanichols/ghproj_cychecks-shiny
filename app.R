@@ -1,4 +1,4 @@
-remotes::install_github("lydiaPenglish/CyChecks2")
+#remotes::install_github("lydiaPenglish/CyChecks2")
 library(shiny)
 library(ggplot2)
 library(CyChecks2)

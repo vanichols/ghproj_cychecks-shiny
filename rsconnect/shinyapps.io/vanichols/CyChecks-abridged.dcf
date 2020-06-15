@@ -5,8 +5,8 @@ account: vanichols
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 2458892
-bundleId: 3273871
+bundleId: 3273878
 url: https://vanichols.shinyapps.io/CyChecks-abridged/
-when: 1592253206.68957
+when: 1592253394.79838
 asMultiple: FALSE
 asStatic: FALSE
